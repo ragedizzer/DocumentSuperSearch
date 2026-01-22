@@ -119,6 +119,7 @@ Search-Gui-Settings.json
 - Match case
 - Match whole word
 - Keep awake while running
+- Search file names
 
 ### Email options
 Check "Email results" and fill in:
@@ -158,6 +159,7 @@ Key parameters:
 - SearchTextContent
 - SearchLinkPaths
 - SearchMetadata
+- SearchFileName
 - IncludeMetadataColumns
 - IncludeSubfolders
 - PreventSleep
@@ -190,7 +192,7 @@ Search results - term1, term2 - yyyy-MM-dd.xlsx
 ### "Found" column
 Shows where the match occurred:
 ```
-Body; Link; Doc-ID; Summary; Notes; Tags; Enterprise Keywords; Author
+Filename; Body; Link; Doc-ID; Summary; Notes; Tags; Enterprise Keywords; Author
 ```
 
 ---
