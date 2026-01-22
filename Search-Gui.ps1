@@ -1,7 +1,6 @@
 ﻿#GUI Wrapper SuperSearch Search Travis Webb V1.2026
 #Travis Webb October 2026
 
-
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -224,15 +223,21 @@ $searchLinksCheck.Location = New-Object System.Drawing.Point(320, 185)
 $searchLinksCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchLinksCheck.Checked = $true
 
+$searchFileNameCheck = New-Object System.Windows.Forms.CheckBox
+$searchFileNameCheck.Text = "Search file names"
+$searchFileNameCheck.Location = New-Object System.Drawing.Point(140, 210)
+$searchFileNameCheck.Size = New-Object System.Drawing.Size(160, 20)
+$searchFileNameCheck.Checked = $false
+
 $searchMetadataCheck = New-Object System.Windows.Forms.CheckBox
 $searchMetadataCheck.Text = "Search metadata fields"
-$searchMetadataCheck.Location = New-Object System.Drawing.Point(140, 210)
+$searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 210)
 $searchMetadataCheck.Size = New-Object System.Drawing.Size(180, 20)
 $searchMetadataCheck.Checked = $true
 
 $includeMetadataCheck = New-Object System.Windows.Forms.CheckBox
 $includeMetadataCheck.Text = "Include metadata columns"
-$includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 210)
+$includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
 $includeMetadataCheck.Size = New-Object System.Drawing.Size(200, 20)
 $includeMetadataCheck.Checked = $true
 
@@ -327,8 +332,8 @@ $searchButton.Add_Click({
         return
     }
 
-    if (-not $searchTextCheck.Checked -and -not $searchLinksCheck.Checked -and -not $searchMetadataCheck.Checked) {
-        [System.Windows.Forms.MessageBox]::Show("Enable text content, link paths, or metadata searching.","Validation",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+    if (-not $searchTextCheck.Checked -and -not $searchLinksCheck.Checked -and -not $searchMetadataCheck.Checked -and -not $searchFileNameCheck.Checked) {
+        [System.Windows.Forms.MessageBox]::Show("Enable text content, link paths, metadata, or file name searching.","Validation",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
         return
     }
 
@@ -362,6 +367,7 @@ $searchButton.Add_Click({
             MatchWholeWord = $matchWholeCheck.Checked
             SearchTextContent = $searchTextCheck.Checked
             SearchLinkPaths = $searchLinksCheck.Checked
+            SearchFileName = $searchFileNameCheck.Checked
             SearchMetadata = $searchMetadataCheck.Checked
             IncludeMetadataColumns = $includeMetadataCheck.Checked
             SendEmailResults = $sendEmailCheck.Checked
@@ -415,6 +421,7 @@ $form.Controls.AddRange(@(
     $matchWholeCheck,
     $searchTextCheck,
     $searchLinksCheck,
+    $searchFileNameCheck,
     $searchMetadataCheck,
     $includeMetadataCheck,
     $sendEmailCheck,
