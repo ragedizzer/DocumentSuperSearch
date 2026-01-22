@@ -1,5 +1,14 @@
 # DocumentSuperSearch
 Supersearch is a PowerShell-based document discovery tool for Word files. It searches body text, hyperlinks, and key metadata fields, then exports results to a structured Excel report. This makes it ideal for governance and audit workflows where documents must be grouped or validated by metadata such as Summary, Tags, or Enterprise Keywords.
+
+Supersearch is a PowerShell-based document discovery tool for Word files. It searches body text, hyperlinks, paths, and key metadata fields, then exports results to a structured Excel report. This makes it ideal for governance and audit workflows where documents must be grouped or validated by metadata such as Summary, Tags, or Enterprise Keywords.
+
+The output file is audit-friendly because it:
+- Captures **where each match was found** (body, metadata field, or link)
+- Normalizes metadata into consistent columns for easy filtering/grouping
+- Enables quick review of compliance or inventory gaps across large libraries
+
+
 # Supersearch (Search.ps1) README
 
 This document explains how to install and use the Supersearch tool, including the GUI and key options.
@@ -17,6 +26,7 @@ This document explains how to install and use the Supersearch tool, including th
 7. Email Results (Outlook)
 8. Sleep Prevention
 9. Troubleshooting
+10. Known Issues
 
 ---
 
@@ -28,14 +38,6 @@ Supersearch scans Word documents for terms in:
 - Metadata fields (Doc-ID, Summary, Notes, Tags, Enterprise Keywords, Author)
 
 Results are saved to an Excel file and can be emailed via Outlook.
-
-### GitHub Summary (tool + audit value)
-Supersearch is a PowerShell-based document discovery tool for Word files. It searches body text, hyperlinks, and key metadata fields, then exports results to a structured Excel report. This makes it ideal for governance and audit workflows where documents must be grouped or validated by metadata such as Doc-ID, Summary, Tags, or Enterprise Keywords.
-
-The output file is audit-friendly because it:
-- Captures **where each match was found** (body, metadata field, or link)
-- Normalizes metadata into consistent columns for easy filtering/grouping
-- Enables quick review of compliance or inventory gaps across large libraries
 
 ---
 
@@ -228,3 +230,4 @@ Some documents do not contain all metadata fields. Empty fields are normal.
 ### Corporate security blocks .cmd
 Use the shortcut generator. It creates a shortcut to powershell.exe directly.
 
+## 10) Known Issues 
