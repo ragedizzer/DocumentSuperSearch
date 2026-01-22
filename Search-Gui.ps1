@@ -179,13 +179,13 @@ $outputResetButton.Add_Click({
 $toolTip.SetToolTip($outputResetButton, "Reset output path to Documents")
 
 $includeSubfoldersCheck = New-Object System.Windows.Forms.CheckBox
-$includeSubfoldersCheck.Text = "Include subfolders"
+$includeSubfoldersCheck.Text = "Subfolders"
 $includeSubfoldersCheck.Location = New-Object System.Drawing.Point(140, 95)
 $includeSubfoldersCheck.Size = New-Object System.Drawing.Size(160, 20)
 $includeSubfoldersCheck.Checked = $true
 
 $preventSleepCheck = New-Object System.Windows.Forms.CheckBox
-$preventSleepCheck.Text = "Keep awake while running"
+$preventSleepCheck.Text = "Keep awake"
 $preventSleepCheck.Location = New-Object System.Drawing.Point(320, 95)
 $preventSleepCheck.Size = New-Object System.Drawing.Size(200, 20)
 $preventSleepCheck.Checked = $true
@@ -218,7 +218,7 @@ $searchTextCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchTextCheck.Checked = $true
 
 $searchLinksCheck = New-Object System.Windows.Forms.CheckBox
-$searchLinksCheck.Text = "Search link paths"
+$searchLinksCheck.Text = "Search links"
 $searchLinksCheck.Location = New-Object System.Drawing.Point(320, 185)
 $searchLinksCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchLinksCheck.Checked = $true
@@ -230,13 +230,13 @@ $searchFileNameCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchFileNameCheck.Checked = $false
 
 $searchMetadataCheck = New-Object System.Windows.Forms.CheckBox
-$searchMetadataCheck.Text = "Search metadata fields"
+$searchMetadataCheck.Text = "Metadata fields"
 $searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 210)
 $searchMetadataCheck.Size = New-Object System.Drawing.Size(180, 20)
 $searchMetadataCheck.Checked = $true
 
 $includeMetadataCheck = New-Object System.Windows.Forms.CheckBox
-$includeMetadataCheck.Text = "Include metadata columns"
+$includeMetadataCheck.Text = "Metadata columns"
 $includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
 $includeMetadataCheck.Size = New-Object System.Drawing.Size(200, 20)
 $includeMetadataCheck.Checked = $true
@@ -435,3 +435,4 @@ $form.Controls.AddRange(@(
 ))
 
 [void]$form.ShowDialog()
+
