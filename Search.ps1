@@ -560,6 +560,7 @@ function Invoke-DocumentSearch {
         [bool]$SearchMetadata = $true,
         [bool]$IncludeMetadataColumns = $true,
         [bool]$IncludeSubfolders = $true,
+        [bool]$SearchFileName = $false,
         [bool]$PreventSleep = $true,
         [bool]$SendEmailResults = $false,
         [string[]]$EmailTo = @("user@domain.com"),
@@ -568,14 +569,18 @@ function Invoke-DocumentSearch {
         [string[]]$WordExts = @('.docx','.doc','.docm')
     )
 
+    #In the path line below enter path of the folder you want to searh"
+    #$Path = "C:\Users\twebb\OneDrive - CreditOne Bank\Documents\02 Work\80 Scripts\TEST"
+    #In the find line after the equals sign, enter terms in an array.
+    #in the wordext line below, enter the doc file types, you can also add items alike txt or templates. 
 
 $SearchTerms = @($FindTerms | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" } | Select-Object -Unique)
 if (-not $SearchTerms -or $SearchTerms.Count -eq 0) {
     Write-Error "No search terms provided. Update `$FindTerms."
     return
 }
-if (-not $SearchTextContent -and -not $SearchLinkPaths -and -not $SearchMetadata) {
-    Write-Error "Enable at least one of `$SearchTextContent, `$SearchLinkPaths, or `$SearchMetadata."
+if (-not $SearchTextContent -and -not $SearchLinkPaths -and -not $SearchMetadata -and -not $SearchFileName) {
+    Write-Error "Enable at least one of `$SearchTextContent, `$SearchLinkPaths, `$SearchMetadata, or `$SearchFileName."
     return
 }
 $SearchTermsText = $SearchTerms -join ", "
@@ -661,6 +666,53 @@ function Test-TermMatch {
     return ($Text.IndexOf($Term, $comparison) -ge 0)
 }
 
+function Get-LinkCandidates {
+    param(
+        [string]$Address,
+        [string]$SubAddress,
+        [string]$DisplayText
+    )
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    $addCandidate = {
+        param([string]$Value)
+        if (-not [string]::IsNullOrWhiteSpace($Value) -and -not $candidates.Contains($Value)) {
+            $candidates.Add($Value)
+        }
+    }
+
+    & $addCandidate $Address
+    & $addCandidate $SubAddress
+    & $addCandidate $DisplayText
+
+    foreach ($value in @($Address, $SubAddress, $DisplayText)) {
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            continue
+        }
+
+        $decoded = [System.Uri]::UnescapeDataString($value)
+        & $addCandidate $decoded
+
+        if ($decoded -match '^file:///') {
+            $trimmed = $decoded -replace '^file:///+', ''
+            $trimmed = $trimmed -replace '/', '\'
+            & $addCandidate $trimmed
+        }
+
+        try {
+            $uri = [System.Uri]$value
+            if ($uri.IsFile -and -not [string]::IsNullOrWhiteSpace($uri.LocalPath)) {
+                & $addCandidate $uri.LocalPath
+            }
+        } catch {
+            # ignore invalid URIs
+        }
+    }
+
+    return $candidates
+}
+
 $MatchResults = @()
 try {
     $pathItem = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
@@ -715,16 +767,18 @@ try {
                         $Address = $Hyperlink.Address
                         $SubAddress = $Hyperlink.SubAddress
                         $DisplayText = $Hyperlink.TextToDisplay
+                        $LinkCandidates = Get-LinkCandidates -Address $Address -SubAddress $SubAddress -DisplayText $DisplayText
 
                         foreach ($Term in $SearchTerms) {
-                            if ((Test-TermMatch -Text $Address -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) -or
-                                (Test-TermMatch -Text $SubAddress -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) -or
-                                (Test-TermMatch -Text $DisplayText -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord)) {
-                                if (-not $TermMatched[$Term]) {
-                                    $TermMatched[$Term] = $true
-                                    $MatchedCount++
+                            foreach ($candidate in $LinkCandidates) {
+                                if (Test-TermMatch -Text $candidate -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
+                                    if (-not $TermMatched[$Term]) {
+                                        $TermMatched[$Term] = $true
+                                        $MatchedCount++
+                                    }
+                                    $FoundLocations.Add("Link") | Out-Null
+                                    break
                                 }
-                                $FoundLocations.Add("Link") | Out-Null
                             }
                         }
 
@@ -737,6 +791,26 @@ try {
                     Write-Warning "Failed to scan hyperlinks in $($File.FullName): $($_.Exception.Message)"
                 } finally {
                     $Hyperlinks = Release-ComObject -ComObject $Hyperlinks
+                }
+            }
+
+            if ($SearchFileName) {
+                $fileCandidates = @(
+                    $File.Name,
+                    [System.IO.Path]::GetFileNameWithoutExtension($File.Name)
+                ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+                foreach ($Term in $SearchTerms) {
+                    foreach ($candidate in $fileCandidates) {
+                        if (Test-TermMatch -Text $candidate -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
+                            if (-not $TermMatched[$Term]) {
+                                $TermMatched[$Term] = $true
+                                $MatchedCount++
+                            }
+                            $FoundLocations.Add("Title") | Out-Null
+                            break
+                        }
+                    }
                 }
             }
 
