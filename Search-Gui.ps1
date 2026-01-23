@@ -205,7 +205,7 @@ $includeSubfoldersCheck.Size = New-Object System.Drawing.Size(160, 20)
 $includeSubfoldersCheck.Checked = $true
 
 $preventSleepCheck = New-Object System.Windows.Forms.CheckBox
-$preventSleepCheck.Text = "Keep awake while running"
+$preventSleepCheck.Text = "Keep awake"
 $preventSleepCheck.Location = New-Object System.Drawing.Point(320, 120)
 $preventSleepCheck.Size = New-Object System.Drawing.Size(200, 20)
 $preventSleepCheck.Checked = $true
@@ -232,13 +232,13 @@ $matchWholeCheck.Size = New-Object System.Drawing.Size(160, 20)
 $matchWholeCheck.Checked = $true
 
 $searchTextCheck = New-Object System.Windows.Forms.CheckBox
-$searchTextCheck.Text = "Search text content"
+$searchTextCheck.Text = "Search content"
 $searchTextCheck.Location = New-Object System.Drawing.Point(140, 210)
 $searchTextCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchTextCheck.Checked = $true
 
 $searchLinksCheck = New-Object System.Windows.Forms.CheckBox
-$searchLinksCheck.Text = "Search link paths"
+$searchLinksCheck.Text = "Search links"
 $searchLinksCheck.Location = New-Object System.Drawing.Point(320, 210)
 $searchLinksCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchLinksCheck.Checked = $true
@@ -275,7 +275,7 @@ $searchFileNameCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchFileNameCheck.Checked = $false
 
 $searchMetadataCheck = New-Object System.Windows.Forms.CheckBox
-$searchMetadataCheck.Text = "Search metadata fields"
+$searchMetadataCheck.Text = "Search metadata"
 $searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
 $searchMetadataCheck.Size = New-Object System.Drawing.Size(180, 20)
 $searchMetadataCheck.Checked = $true
@@ -521,3 +521,4 @@ $form.Controls.AddRange(@(
 ))
 
 [void]$form.ShowDialog()
+
