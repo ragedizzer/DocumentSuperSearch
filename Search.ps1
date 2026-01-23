@@ -1,10 +1,6 @@
 ﻿#SuperSearch Search Travis Webb V1.2026
 #This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
 
-#Insight word Search Travis Webb October 2024
-#This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
-#Full details of use DOC-ID KM-2022
-
 function Get-SafeFileName {
     param(
         [string]$Name
@@ -1094,3 +1090,4 @@ return $MatchResults
 if ($MyInvocation.InvocationName -ne '.') {
     return Invoke-DocumentSearch
 }
+
