@@ -20,7 +20,7 @@ if (-not (Test-Path $CoreScript)) {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Document Search"
-$form.ClientSize = New-Object System.Drawing.Size(680, 500)
+$form.ClientSize = New-Object System.Drawing.Size(680, 540)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
@@ -55,12 +55,14 @@ if (Test-Path -LiteralPath $settingsPath) {
 function Save-GuiSettings {
     param(
         [string]$SearchPath,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [string]$OutputFormat
     )
 
     $settings = [PSCustomObject]@{
         SearchPath = $SearchPath
         OutputPath = $OutputPath
+        OutputFormat = $OutputFormat
     }
 
     try {
@@ -77,6 +79,7 @@ function Save-GuiSettings {
 
 $defaultSearchPath = if ($savedSettings -and $savedSettings.SearchPath) { $savedSettings.SearchPath } else { $documentsPath }
 $defaultOutputPath = if ($savedSettings -and $savedSettings.OutputPath) { $savedSettings.OutputPath } else { $documentsPath }
+$defaultOutputFormat = if ($savedSettings -and $savedSettings.OutputFormat) { $savedSettings.OutputFormat } else { "Excel" }
 
 $pathTextX = 140
 $pathTextY = 12
@@ -117,7 +120,7 @@ $pathDefaultButton.Size = $iconButtonSize
 $pathDefaultButton.Add_Click({
     $currentPath = $pathText.Text.Trim()
     if (-not [string]::IsNullOrWhiteSpace($currentPath)) {
-        Save-GuiSettings -SearchPath $currentPath -OutputPath $outputPathText.Text.Trim()
+        Save-GuiSettings -SearchPath $currentPath -OutputPath $outputPathText.Text.Trim() -OutputFormat $outputFormatCombo.SelectedItem
     }
 })
 $toolTip.SetToolTip($pathDefaultButton, "Save search path as default")
@@ -128,7 +131,7 @@ $pathResetButton.Location = New-Object System.Drawing.Point(([int]($pathButtonX 
 $pathResetButton.Size = $iconButtonSize
 $pathResetButton.Add_Click({
     $pathText.Text = $documentsPath
-    Save-GuiSettings -SearchPath $documentsPath -OutputPath $outputPathText.Text.Trim()
+    Save-GuiSettings -SearchPath $documentsPath -OutputPath $outputPathText.Text.Trim() -OutputFormat $outputFormatCombo.SelectedItem
 })
 $toolTip.SetToolTip($pathResetButton, "Reset search path to Documents")
 
@@ -164,7 +167,7 @@ $outputDefaultButton.Size = $iconButtonSize
 $outputDefaultButton.Add_Click({
     $currentOutput = $outputPathText.Text.Trim()
     if (-not [string]::IsNullOrWhiteSpace($currentOutput)) {
-        Save-GuiSettings -SearchPath $pathText.Text.Trim() -OutputPath $currentOutput
+        Save-GuiSettings -SearchPath $pathText.Text.Trim() -OutputPath $currentOutput -OutputFormat $outputFormatCombo.SelectedItem
     }
 })
 $toolTip.SetToolTip($outputDefaultButton, "Save output path as default")
@@ -175,62 +178,78 @@ $outputResetButton.Location = New-Object System.Drawing.Point(([int]($pathButton
 $outputResetButton.Size = $iconButtonSize
 $outputResetButton.Add_Click({
     $outputPathText.Text = $documentsPath
-    Save-GuiSettings -SearchPath $pathText.Text.Trim() -OutputPath $documentsPath
+    Save-GuiSettings -SearchPath $pathText.Text.Trim() -OutputPath $documentsPath -OutputFormat $outputFormatCombo.SelectedItem
 })
 $toolTip.SetToolTip($outputResetButton, "Reset output path to Documents")
 
+$outputFormatLabel = New-Object System.Windows.Forms.Label
+$outputFormatLabel.Text = "Output format"
+$outputFormatLabel.Location = New-Object System.Drawing.Point(12, 70)
+$outputFormatLabel.Size = New-Object System.Drawing.Size(120, 20)
+
+$outputFormatCombo = New-Object System.Windows.Forms.ComboBox
+$outputFormatCombo.Location = New-Object System.Drawing.Point(140, 68)
+$outputFormatCombo.Size = New-Object System.Drawing.Size(160, 20)
+$outputFormatCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+$null = $outputFormatCombo.Items.AddRange(@("Excel","ExcelTable","Csv"))
+if ($outputFormatCombo.Items.Contains($defaultOutputFormat)) {
+    $outputFormatCombo.SelectedItem = $defaultOutputFormat
+} else {
+    $outputFormatCombo.SelectedItem = "Excel"
+}
+
 $includeSubfoldersCheck = New-Object System.Windows.Forms.CheckBox
 $includeSubfoldersCheck.Text = "Include subfolders"
-$includeSubfoldersCheck.Location = New-Object System.Drawing.Point(140, 95)
+$includeSubfoldersCheck.Location = New-Object System.Drawing.Point(140, 120)
 $includeSubfoldersCheck.Size = New-Object System.Drawing.Size(160, 20)
 $includeSubfoldersCheck.Checked = $true
 
 $preventSleepCheck = New-Object System.Windows.Forms.CheckBox
 $preventSleepCheck.Text = "Keep awake while running"
-$preventSleepCheck.Location = New-Object System.Drawing.Point(320, 95)
+$preventSleepCheck.Location = New-Object System.Drawing.Point(320, 120)
 $preventSleepCheck.Size = New-Object System.Drawing.Size(200, 20)
 $preventSleepCheck.Checked = $true
 
 $termsLabel = New-Object System.Windows.Forms.Label
 $termsLabel.Text = "Search terms (comma or semicolon separated)"
-$termsLabel.Location = New-Object System.Drawing.Point(12, 125)
+$termsLabel.Location = New-Object System.Drawing.Point(12, 150)
 $termsLabel.Size = New-Object System.Drawing.Size(260, 20)
 
 $termsText = New-Object System.Windows.Forms.TextBox
-$termsText.Location = New-Object System.Drawing.Point(280, 122)
+$termsText.Location = New-Object System.Drawing.Point(280, 147)
 $termsText.Size = New-Object System.Drawing.Size(380, 20)
 $termsText.Text = "fnbm"
 
 $matchCaseCheck = New-Object System.Windows.Forms.CheckBox
 $matchCaseCheck.Text = "Match case"
-$matchCaseCheck.Location = New-Object System.Drawing.Point(140, 160)
+$matchCaseCheck.Location = New-Object System.Drawing.Point(140, 185)
 $matchCaseCheck.Size = New-Object System.Drawing.Size(140, 20)
 
 $matchWholeCheck = New-Object System.Windows.Forms.CheckBox
 $matchWholeCheck.Text = "Match whole word"
-$matchWholeCheck.Location = New-Object System.Drawing.Point(320, 160)
+$matchWholeCheck.Location = New-Object System.Drawing.Point(320, 185)
 $matchWholeCheck.Size = New-Object System.Drawing.Size(160, 20)
 $matchWholeCheck.Checked = $true
 
 $searchTextCheck = New-Object System.Windows.Forms.CheckBox
 $searchTextCheck.Text = "Search text content"
-$searchTextCheck.Location = New-Object System.Drawing.Point(140, 185)
+$searchTextCheck.Location = New-Object System.Drawing.Point(140, 210)
 $searchTextCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchTextCheck.Checked = $true
 
 $searchLinksCheck = New-Object System.Windows.Forms.CheckBox
 $searchLinksCheck.Text = "Search link paths"
-$searchLinksCheck.Location = New-Object System.Drawing.Point(320, 185)
+$searchLinksCheck.Location = New-Object System.Drawing.Point(320, 210)
 $searchLinksCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchLinksCheck.Checked = $true
 
 $linkModeLabel = New-Object System.Windows.Forms.Label
 $linkModeLabel.Text = "Link mode"
-$linkModeLabel.Location = New-Object System.Drawing.Point(140, 320)
+$linkModeLabel.Location = New-Object System.Drawing.Point(140, 285)
 $linkModeLabel.Size = New-Object System.Drawing.Size(70, 20)
 
 $linkModeCombo = New-Object System.Windows.Forms.ComboBox
-$linkModeCombo.Location = New-Object System.Drawing.Point(215, 318)
+$linkModeCombo.Location = New-Object System.Drawing.Point(215, 283)
 $linkModeCombo.Size = New-Object System.Drawing.Size(115, 20)
 $linkModeCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
 $null = $linkModeCombo.Items.AddRange(@("AddressOnly","AddressAndSub","All"))
@@ -238,11 +257,11 @@ $linkModeCombo.SelectedItem = "All"
 
 $docTimeoutLabel = New-Object System.Windows.Forms.Label
 $docTimeoutLabel.Text = "Doc timeout (s)"
-$docTimeoutLabel.Location = New-Object System.Drawing.Point(340, 320)
+$docTimeoutLabel.Location = New-Object System.Drawing.Point(340, 285)
 $docTimeoutLabel.Size = New-Object System.Drawing.Size(95, 20)
 
 $docTimeoutInput = New-Object System.Windows.Forms.NumericUpDown
-$docTimeoutInput.Location = New-Object System.Drawing.Point(445, 318)
+$docTimeoutInput.Location = New-Object System.Drawing.Point(445, 283)
 $docTimeoutInput.Size = New-Object System.Drawing.Size(60, 20)
 $docTimeoutInput.Minimum = 0
 $docTimeoutInput.Maximum = 3600
@@ -251,58 +270,58 @@ $toolTip.SetToolTip($docTimeoutInput, "0 disables timeout")
 
 $searchFileNameCheck = New-Object System.Windows.Forms.CheckBox
 $searchFileNameCheck.Text = "Search file names"
-$searchFileNameCheck.Location = New-Object System.Drawing.Point(140, 210)
+$searchFileNameCheck.Location = New-Object System.Drawing.Point(140, 235)
 $searchFileNameCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchFileNameCheck.Checked = $false
 
 $searchMetadataCheck = New-Object System.Windows.Forms.CheckBox
 $searchMetadataCheck.Text = "Search metadata fields"
-$searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 210)
+$searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
 $searchMetadataCheck.Size = New-Object System.Drawing.Size(180, 20)
 $searchMetadataCheck.Checked = $true
 
 $includeMetadataCheck = New-Object System.Windows.Forms.CheckBox
 $includeMetadataCheck.Text = "Include metadata columns"
-$includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
+$includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 260)
 $includeMetadataCheck.Size = New-Object System.Drawing.Size(200, 20)
 $includeMetadataCheck.Checked = $true
 
 $sendEmailCheck = New-Object System.Windows.Forms.CheckBox
 $sendEmailCheck.Text = "Email results"
-$sendEmailCheck.Location = New-Object System.Drawing.Point(140, 235)
+$sendEmailCheck.Location = New-Object System.Drawing.Point(140, 260)
 $sendEmailCheck.Size = New-Object System.Drawing.Size(140, 20)
 
 $emailToLabel = New-Object System.Windows.Forms.Label
 $emailToLabel.Text = "Email to"
-$emailToLabel.Location = New-Object System.Drawing.Point(12, 265)
+$emailToLabel.Location = New-Object System.Drawing.Point(12, 315)
 $emailToLabel.Size = New-Object System.Drawing.Size(120, 20)
 
 $emailToText = New-Object System.Windows.Forms.TextBox
-$emailToText.Location = New-Object System.Drawing.Point(140, 262)
+$emailToText.Location = New-Object System.Drawing.Point(140, 312)
 $emailToText.Size = New-Object System.Drawing.Size(520, 20)
 
 $emailFromLabel = New-Object System.Windows.Forms.Label
 $emailFromLabel.Text = "Send on behalf of (optional)"
-$emailFromLabel.Location = New-Object System.Drawing.Point(12, 295)
+$emailFromLabel.Location = New-Object System.Drawing.Point(12, 345)
 $emailFromLabel.Size = New-Object System.Drawing.Size(180, 20)
 
 $emailFromText = New-Object System.Windows.Forms.TextBox
-$emailFromText.Location = New-Object System.Drawing.Point(200, 292)
+$emailFromText.Location = New-Object System.Drawing.Point(200, 342)
 $emailFromText.Size = New-Object System.Drawing.Size(460, 20)
 
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(12, 350)
+$statusLabel.Location = New-Object System.Drawing.Point(12, 385)
 $statusLabel.Size = New-Object System.Drawing.Size(648, 40)
 $statusLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 
 $searchButton = New-Object System.Windows.Forms.Button
 $searchButton.Text = "Search"
-$searchButton.Location = New-Object System.Drawing.Point(140, 455)
+$searchButton.Location = New-Object System.Drawing.Point(140, 465)
 $searchButton.Size = New-Object System.Drawing.Size(100, 30)
 
 $stopButton = New-Object System.Windows.Forms.Button
 $stopButton.Text = "Stop"
-$stopButton.Location = New-Object System.Drawing.Point(250, 455)
+$stopButton.Location = New-Object System.Drawing.Point(250, 465)
 $stopButton.Size = New-Object System.Drawing.Size(100, 30)
 $stopButton.Enabled = $false
 $stopButton.Add_Click({
@@ -313,7 +332,7 @@ $stopButton.Add_Click({
 
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Text = "Close"
-$closeButton.Location = New-Object System.Drawing.Point(360, 455)
+$closeButton.Location = New-Object System.Drawing.Point(360, 465)
 $closeButton.Size = New-Object System.Drawing.Size(100, 30)
 $closeButton.Add_Click({ $form.Close() })
 
@@ -402,8 +421,11 @@ $searchButton.Add_Click({
 
     try {
         $script:StopRequested = $false
+        Save-GuiSettings -SearchPath $pathValue -OutputPath $outputPathValue -OutputFormat $outputFormatCombo.SelectedItem
         $emailSubject = Get-SearchResultsSubject -SearchTerms $findTerms
-        $outputFileName = Get-SearchResultsFileName -Subject $emailSubject
+        $outputFormat = $outputFormatCombo.SelectedItem
+        $outputExtension = if ($outputFormat -eq "Csv") { ".csv" } else { ".xlsx" }
+        $outputFileName = Get-SearchResultsFileName -Subject $emailSubject -Extension $outputExtension
         $outputPath = Join-Path -Path $outputPathValue -ChildPath $outputFileName
 
         $shouldStop = { [System.Windows.Forms.Application]::DoEvents(); return $script:StopRequested }
@@ -427,6 +449,7 @@ $searchButton.Add_Click({
             OutputDirectory = $outputPathValue
             DocumentTimeoutSeconds = [int]$docTimeoutInput.Value
             ShouldStop = $shouldStop
+            OutputFormat = $outputFormat
         }
 
         $results = Invoke-DocumentSearch @searchParams
@@ -469,6 +492,8 @@ $form.Controls.AddRange(@(
     $outputBrowseButton,
     $outputDefaultButton,
     $outputResetButton,
+    $outputFormatLabel,
+    $outputFormatCombo,
     $includeSubfoldersCheck,
     $preventSleepCheck,
     $termsLabel,
