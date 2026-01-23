@@ -1,5 +1,6 @@
 ﻿#GUI Wrapper SuperSearch Search Travis Webb V1.2026
 #Travis Webb October 2026
+#Document Search GUI wrapper for Search.ps1
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -19,7 +20,7 @@ if (-not (Test-Path $CoreScript)) {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Document Search"
-$form.ClientSize = New-Object System.Drawing.Size(680, 470)
+$form.ClientSize = New-Object System.Drawing.Size(680, 500)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
@@ -179,13 +180,13 @@ $outputResetButton.Add_Click({
 $toolTip.SetToolTip($outputResetButton, "Reset output path to Documents")
 
 $includeSubfoldersCheck = New-Object System.Windows.Forms.CheckBox
-$includeSubfoldersCheck.Text = "Subfolders"
+$includeSubfoldersCheck.Text = "Include subfolders"
 $includeSubfoldersCheck.Location = New-Object System.Drawing.Point(140, 95)
 $includeSubfoldersCheck.Size = New-Object System.Drawing.Size(160, 20)
 $includeSubfoldersCheck.Checked = $true
 
 $preventSleepCheck = New-Object System.Windows.Forms.CheckBox
-$preventSleepCheck.Text = "Keep awake"
+$preventSleepCheck.Text = "Keep awake while running"
 $preventSleepCheck.Location = New-Object System.Drawing.Point(320, 95)
 $preventSleepCheck.Size = New-Object System.Drawing.Size(200, 20)
 $preventSleepCheck.Checked = $true
@@ -218,10 +219,35 @@ $searchTextCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchTextCheck.Checked = $true
 
 $searchLinksCheck = New-Object System.Windows.Forms.CheckBox
-$searchLinksCheck.Text = "Search links"
+$searchLinksCheck.Text = "Search link paths"
 $searchLinksCheck.Location = New-Object System.Drawing.Point(320, 185)
 $searchLinksCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchLinksCheck.Checked = $true
+
+$linkModeLabel = New-Object System.Windows.Forms.Label
+$linkModeLabel.Text = "Link mode"
+$linkModeLabel.Location = New-Object System.Drawing.Point(140, 320)
+$linkModeLabel.Size = New-Object System.Drawing.Size(70, 20)
+
+$linkModeCombo = New-Object System.Windows.Forms.ComboBox
+$linkModeCombo.Location = New-Object System.Drawing.Point(215, 318)
+$linkModeCombo.Size = New-Object System.Drawing.Size(115, 20)
+$linkModeCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+$null = $linkModeCombo.Items.AddRange(@("AddressOnly","AddressAndSub","All"))
+$linkModeCombo.SelectedItem = "All"
+
+$docTimeoutLabel = New-Object System.Windows.Forms.Label
+$docTimeoutLabel.Text = "Doc timeout (s)"
+$docTimeoutLabel.Location = New-Object System.Drawing.Point(340, 320)
+$docTimeoutLabel.Size = New-Object System.Drawing.Size(95, 20)
+
+$docTimeoutInput = New-Object System.Windows.Forms.NumericUpDown
+$docTimeoutInput.Location = New-Object System.Drawing.Point(445, 318)
+$docTimeoutInput.Size = New-Object System.Drawing.Size(60, 20)
+$docTimeoutInput.Minimum = 0
+$docTimeoutInput.Maximum = 3600
+$docTimeoutInput.Value = 120
+$toolTip.SetToolTip($docTimeoutInput, "0 disables timeout")
 
 $searchFileNameCheck = New-Object System.Windows.Forms.CheckBox
 $searchFileNameCheck.Text = "Search file names"
@@ -230,13 +256,13 @@ $searchFileNameCheck.Size = New-Object System.Drawing.Size(160, 20)
 $searchFileNameCheck.Checked = $false
 
 $searchMetadataCheck = New-Object System.Windows.Forms.CheckBox
-$searchMetadataCheck.Text = "Metadata fields"
+$searchMetadataCheck.Text = "Search metadata fields"
 $searchMetadataCheck.Location = New-Object System.Drawing.Point(320, 210)
 $searchMetadataCheck.Size = New-Object System.Drawing.Size(180, 20)
 $searchMetadataCheck.Checked = $true
 
 $includeMetadataCheck = New-Object System.Windows.Forms.CheckBox
-$includeMetadataCheck.Text = "Metadata columns"
+$includeMetadataCheck.Text = "Include metadata columns"
 $includeMetadataCheck.Location = New-Object System.Drawing.Point(320, 235)
 $includeMetadataCheck.Size = New-Object System.Drawing.Size(200, 20)
 $includeMetadataCheck.Checked = $true
@@ -265,18 +291,18 @@ $emailFromText.Location = New-Object System.Drawing.Point(200, 292)
 $emailFromText.Size = New-Object System.Drawing.Size(460, 20)
 
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(12, 325)
+$statusLabel.Location = New-Object System.Drawing.Point(12, 350)
 $statusLabel.Size = New-Object System.Drawing.Size(648, 40)
 $statusLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 
 $searchButton = New-Object System.Windows.Forms.Button
 $searchButton.Text = "Search"
-$searchButton.Location = New-Object System.Drawing.Point(140, 400)
+$searchButton.Location = New-Object System.Drawing.Point(140, 455)
 $searchButton.Size = New-Object System.Drawing.Size(100, 30)
 
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Text = "Close"
-$closeButton.Location = New-Object System.Drawing.Point(250, 400)
+$closeButton.Location = New-Object System.Drawing.Point(250, 455)
 $closeButton.Size = New-Object System.Drawing.Size(100, 30)
 $closeButton.Add_Click({ $form.Close() })
 
@@ -289,6 +315,14 @@ $toggleEmailFields = {
 }
 $sendEmailCheck.Add_CheckedChanged($toggleEmailFields)
 & $toggleEmailFields
+
+$toggleLinkMode = {
+    $enabled = $searchLinksCheck.Checked
+    $linkModeLabel.Visible = $enabled
+    $linkModeCombo.Visible = $enabled
+}
+$searchLinksCheck.Add_CheckedChanged($toggleLinkMode)
+& $toggleLinkMode
 
 $searchButton.Add_Click({
     $statusLabel.Text = ""
@@ -367,6 +401,7 @@ $searchButton.Add_Click({
             MatchWholeWord = $matchWholeCheck.Checked
             SearchTextContent = $searchTextCheck.Checked
             SearchLinkPaths = $searchLinksCheck.Checked
+            LinkSearchMode = $linkModeCombo.SelectedItem
             SearchFileName = $searchFileNameCheck.Checked
             SearchMetadata = $searchMetadataCheck.Checked
             IncludeMetadataColumns = $includeMetadataCheck.Checked
@@ -374,6 +409,7 @@ $searchButton.Add_Click({
             EmailTo = $emailTo
             EmailFrom = $emailFrom
             OutputDirectory = $outputPathValue
+            DocumentTimeoutSeconds = [int]$docTimeoutInput.Value
         }
 
         $results = Invoke-DocumentSearch @searchParams
@@ -421,6 +457,10 @@ $form.Controls.AddRange(@(
     $matchWholeCheck,
     $searchTextCheck,
     $searchLinksCheck,
+    $linkModeLabel,
+    $linkModeCombo,
+    $docTimeoutLabel,
+    $docTimeoutInput,
     $searchFileNameCheck,
     $searchMetadataCheck,
     $includeMetadataCheck,
@@ -435,4 +475,3 @@ $form.Controls.AddRange(@(
 ))
 
 [void]$form.ShowDialog()
-
