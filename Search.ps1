@@ -1,10 +1,6 @@
 ﻿#SuperSearch Search Travis Webb V1.2026
 #This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
 
-#Insight word Search Travis Webb October 2024
-#This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
-#Full details of use DOC-ID KM-2022
-
 function Get-SafeFileName {
     param(
         [string]$Name
@@ -443,7 +439,7 @@ function Get-DocxMetadataFromCustomXmlParts {
             }
         }
     } catch {
-        # ignore COM errors and fall back to package inspection
+        # ignore COM errors
     } finally {
         $parts = Release-ComObject -ComObject $parts
     }
@@ -486,7 +482,7 @@ function Get-DocumentMetadata {
             $metadata.EnterpriseKeywords = Convert-TaxonomyValueToNames -Value $metadata.EnterpriseKeywords
         }
     } catch {
-        # ignore COM errors and fall back to package inspection
+        # ignore COM errors
     }
 
     try {
@@ -503,7 +499,7 @@ function Get-DocumentMetadata {
             }
         }
     } catch {
-        # ignore COM errors and fall back to package inspection
+        # ignore COM errors 
     }
 
     try {
@@ -520,7 +516,7 @@ function Get-DocumentMetadata {
             }
         }
     } catch {
-        # ignore COM errors and fall back to package inspection
+        # ignore errors
     }
 
     $needsFallback = $false
@@ -588,11 +584,6 @@ function Invoke-DocumentSearch {
         [string[]]$WordExts = @('.docx','.doc','.docm')
     )
 
-    #In the path line below enter path of the folder you want to searh"
-    #$Path = "C:\Users\twebb\OneDrive - CreditOne Bank\Documents\02 Work\80 Scripts\TEST"
-    #In the find line after the equals sign, enter terms in an array.
-    #in the wordext line below, enter the doc file types, you can also add items alike txt or templates. 
-
 $SearchTerms = @($FindTerms | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" } | Select-Object -Unique)
 if (-not $SearchTerms -or $SearchTerms.Count -eq 0) {
     Write-Error "No search terms provided. Update `$FindTerms."
@@ -632,8 +623,8 @@ if ($PreventSleep) {
     Enable-PreventSleep
 }
 
-$Word = New-Object -ComObject Word.Application #create word obj
-$Word.Visible = $false #hide the window
+$Word = New-Object -ComObject Word.Application #create word object
+$Word.Visible = $false #hides the window
 $Word.DisplayAlerts = 0 #disable prompts that block automation
 $Word.AutomationSecurity = 3 #disable macros while scanning
 
@@ -954,7 +945,7 @@ try {
             $Content = Release-ComObject -ComObject $Content
             if ($Doc -ne $null) {
                 try {
-                    Invoke-ComWithRetry -Action { $Doc.Close([ref]$false) | Out-Null } -ActionName "Close document" | Out-Null #close the individual document
+                    Invoke-ComWithRetry -Action { $Doc.Close([ref]$false) | Out-Null } -ActionName "Close document" | Out-Null #close the document
                 } catch {
                     Write-Warning "Failed to close $($File.FullName): $($_.Exception.Message)"
                 } finally {
@@ -1147,3 +1138,4 @@ return $MatchResults
 if ($MyInvocation.InvocationName -ne '.') {
     return Invoke-DocumentSearch
 }
+
