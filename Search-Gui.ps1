@@ -300,9 +300,20 @@ $searchButton.Text = "Search"
 $searchButton.Location = New-Object System.Drawing.Point(140, 455)
 $searchButton.Size = New-Object System.Drawing.Size(100, 30)
 
+$stopButton = New-Object System.Windows.Forms.Button
+$stopButton.Text = "Stop"
+$stopButton.Location = New-Object System.Drawing.Point(250, 455)
+$stopButton.Size = New-Object System.Drawing.Size(100, 30)
+$stopButton.Enabled = $false
+$stopButton.Add_Click({
+    $script:StopRequested = $true
+    $stopButton.Enabled = $false
+    $statusLabel.Text = "Stopping..."
+})
+
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Text = "Close"
-$closeButton.Location = New-Object System.Drawing.Point(250, 455)
+$closeButton.Location = New-Object System.Drawing.Point(360, 455)
 $closeButton.Size = New-Object System.Drawing.Size(100, 30)
 $closeButton.Add_Click({ $form.Close() })
 
@@ -383,14 +394,19 @@ $searchButton.Add_Click({
     }
 
     $searchButton.Enabled = $false
+    $stopButton.Enabled = $true
+    $closeButton.Enabled = $false
     $form.UseWaitCursor = $true
     $statusLabel.Text = "Searching..."
     [System.Windows.Forms.Application]::DoEvents()
 
     try {
+        $script:StopRequested = $false
         $emailSubject = Get-SearchResultsSubject -SearchTerms $findTerms
         $outputFileName = Get-SearchResultsFileName -Subject $emailSubject
         $outputPath = Join-Path -Path $outputPathValue -ChildPath $outputFileName
+
+        $shouldStop = { [System.Windows.Forms.Application]::DoEvents(); return $script:StopRequested }
 
         $searchParams = @{
             Path = $pathValue
@@ -410,6 +426,7 @@ $searchButton.Add_Click({
             EmailFrom = $emailFrom
             OutputDirectory = $outputPathValue
             DocumentTimeoutSeconds = [int]$docTimeoutInput.Value
+            ShouldStop = $shouldStop
         }
 
         $results = Invoke-DocumentSearch @searchParams
@@ -435,6 +452,9 @@ $searchButton.Add_Click({
     } finally {
         $form.UseWaitCursor = $false
         $searchButton.Enabled = $true
+        $stopButton.Enabled = $false
+        $closeButton.Enabled = $true
+        $script:StopRequested = $false
     }
 })
 
@@ -471,6 +491,7 @@ $form.Controls.AddRange(@(
     $emailFromText,
     $statusLabel,
     $searchButton,
+    $stopButton,
     $closeButton
 ))
 
