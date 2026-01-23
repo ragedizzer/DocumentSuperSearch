@@ -1,6 +1,10 @@
 ﻿#SuperSearch Search Travis Webb V1.2026
 #This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
 
+#Insight word Search Travis Webb October 2024
+#This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
+#Full details of use DOC-ID KM-2022
+
 function Get-SafeFileName {
     param(
         [string]$Name
@@ -565,6 +569,7 @@ function Invoke-DocumentSearch {
         [bool]$SearchFileName = $false,
         [int]$DocumentTimeoutSeconds = 120,
         [bool]$PreventSleep = $true,
+        [scriptblock]$ShouldStop = $null,
         [bool]$SendEmailResults = $false,
         [string[]]$EmailTo = @("user@domain.com"),
         [string]$EmailFrom = "",
@@ -725,6 +730,15 @@ function Get-LinkCandidates {
 
 $MatchResults = @()
 try {
+    $StopSearch = $false
+    $CheckStop = {
+        if ($ShouldStop -ne $null -and (& $ShouldStop)) {
+            $StopSearch = $true
+            return $true
+        }
+        return $false
+    }
+
     $pathItem = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
     if ($null -eq $pathItem) {
         Write-Error "Search path not found: $Path"
@@ -742,10 +756,18 @@ try {
     }
     $MatchResults = @(
         foreach ($File in ($SearchFiles | Where-Object { $_.Extension -in $WordExts })) { #Foreach doc/docx/docm file in the above folder and add -Resurse after $Path to include subfolders
+        if (& $CheckStop) {
+            break
+        }
         $Doc = $null
         $Content = $null
 
         try {
+            if (& $CheckStop) {
+                $StopSearch = $true
+                break
+            }
+
             $DocumentStopwatch = $null
             if ($DocumentTimeoutSeconds -gt 0) {
                 $DocumentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -767,6 +789,7 @@ try {
 
             if ($SearchTextContent) {
                 foreach ($Term in $SearchTerms) {
+                    if (& $CheckStop) { break }
                     & $CheckTimeout
                     $Content.Start = 0
                     $Content.End = $Doc.Content.End
@@ -778,12 +801,14 @@ try {
                     }
                 }
             }
+            if ($StopSearch) { break }
 
             if ($SearchLinkPaths) {
                 $Hyperlinks = $null
                 try {
                     $Hyperlinks = $Doc.Hyperlinks
                     for ($i = 1; $i -le $Hyperlinks.Count; $i++) {
+                        if (& $CheckStop) { break }
                         & $CheckTimeout
                         $Hyperlink = $Hyperlinks.Item($i)
                         $Address = $Hyperlink.Address
@@ -809,12 +834,14 @@ try {
                             break
                         }
                     }
+                    if ($StopSearch) { break }
                 } catch {
                     Write-Warning "Failed to scan hyperlinks in $($File.FullName): $($_.Exception.Message)"
                 } finally {
                     $Hyperlinks = Release-ComObject -ComObject $Hyperlinks
                 }
             }
+            if ($StopSearch) { break }
 
             if ($SearchFileName) {
                 $fileCandidates = @(
@@ -823,6 +850,7 @@ try {
                 ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 
                 foreach ($Term in $SearchTerms) {
+                    if (& $CheckStop) { break }
                     & $CheckTimeout
                     foreach ($candidate in $fileCandidates) {
                         if (Test-TermMatch -Text $candidate -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
@@ -836,6 +864,7 @@ try {
                     }
                 }
             }
+            if ($StopSearch) { break }
 
             $Metadata = $null
             if ($SearchMetadata -or $IncludeMetadataColumns) {
@@ -867,6 +896,7 @@ try {
 
                 if ($metadataFields.Count -gt 0) {
                     foreach ($Term in $SearchTerms) {
+                        if (& $CheckStop) { break }
                         & $CheckTimeout
                         foreach ($field in $metadataFields) {
                             if (Test-TermMatch -Text $field.Value -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
@@ -880,6 +910,7 @@ try {
                     }
                 }
             }
+            if ($StopSearch) { break }
 
             $MatchedTerms = $SearchTerms | Where-Object { $TermMatched[$_] }
 
@@ -1063,4 +1094,3 @@ return $MatchResults
 if ($MyInvocation.InvocationName -ne '.') {
     return Invoke-DocumentSearch
 }
-
