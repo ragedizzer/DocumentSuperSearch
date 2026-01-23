@@ -1,6 +1,10 @@
 ﻿#SuperSearch Search Travis Webb V1.2026
 #This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
 
+#Insight word Search Travis Webb October 2024
+#This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
+#Full details of use DOC-ID KM-2022
+
 function Get-SafeFileName {
     param(
         [string]$Name
@@ -28,14 +32,23 @@ function Get-SearchResultsSubject {
 
 function Get-SearchResultsFileName {
     param(
-        [string]$Subject
+        [string]$Subject,
+        [string]$Extension = ".xlsx"
     )
 
     $safeSubject = Get-SafeFileName -Name $Subject
     if ([string]::IsNullOrWhiteSpace($safeSubject)) {
         $safeSubject = "Search results"
     }
-    return "$safeSubject.xlsx"
+
+    if ([string]::IsNullOrWhiteSpace($Extension)) {
+        $Extension = ".xlsx"
+    }
+    if ($Extension[0] -ne ".") {
+        $Extension = "." + $Extension
+    }
+
+    return "$safeSubject$Extension"
 }
 
 function Enable-PreventSleep {
@@ -566,6 +579,8 @@ function Invoke-DocumentSearch {
         [int]$DocumentTimeoutSeconds = 120,
         [bool]$PreventSleep = $true,
         [scriptblock]$ShouldStop = $null,
+        [ValidateSet("Excel","ExcelTable","Csv")]
+        [string]$OutputFormat = "Excel",
         [bool]$SendEmailResults = $false,
         [string[]]$EmailTo = @("user@domain.com"),
         [string]$EmailFrom = "",
@@ -589,7 +604,8 @@ if (-not $SearchTextContent -and -not $SearchLinkPaths -and -not $SearchMetadata
 }
 $SearchTermsText = $SearchTerms -join ", "
 $EmailSubject = Get-SearchResultsSubject -SearchTerms $SearchTerms
-$OutputFileName = Get-SearchResultsFileName -Subject $EmailSubject
+$OutputExtension = if ($OutputFormat -eq "Csv") { ".csv" } else { ".xlsx" }
+$OutputFileName = Get-SearchResultsFileName -Subject $EmailSubject -Extension $OutputExtension
 $ResolvedOutputDirectory = $OutputDirectory
 if ([string]::IsNullOrWhiteSpace($ResolvedOutputDirectory)) {
     $ResolvedOutputDirectory = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Get-Location).Path } else { $PSScriptRoot }
@@ -960,51 +976,46 @@ try {
     }
 }
 
-$Excel = $null
-$Workbook = $null
-$Worksheet = $null
-try {
-    $Excel = New-Object -ComObject Excel.Application
-    $Excel.Visible = $false
-    $Excel.DisplayAlerts = $false
+$ColumnValueMap = @{
+    "MatchedTerms" = { param($row) $row.MatchedTerms }
+    "Found" = { param($row) $row.Found }
+    "Doc-ID" = { param($row) $row.DocId }
+    "FileName" = { param($row) $row.FileName }
+    "FullPath" = { param($row) $row.FullPath }
+    "Author" = { param($row) $row.Author }
+    "Notes" = { param($row) $row.Notes }
+    "Summary" = { param($row) $row.Summary }
+    "Tags" = { param($row) $row.Tags }
+    "Enterprise Keywords" = { param($row) $row.EnterpriseKeywords }
+}
 
-    $Workbook = $Excel.Workbooks.Add()
-    $Worksheet = $Workbook.Worksheets.Item(1)
+if ($IncludeMetadataColumns) {
+    $Headers = @(
+        "MatchedTerms",
+        "Found",
+        "Doc-ID",
+        "FileName",
+        "FullPath",
+        "Author",
+        "Notes",
+        "Summary",
+        "Tags",
+        "Enterprise Keywords"
+    )
+} else {
+    $Headers = @("MatchedTerms","Found","FileName","FullPath")
+}
 
-    $ColumnValueMap = @{
-        "MatchedTerms" = { param($row) $row.MatchedTerms }
-        "Found" = { param($row) $row.Found }
-        "Doc-ID" = { param($row) $row.DocId }
-        "FileName" = { param($row) $row.FileName }
-        "FullPath" = { param($row) $row.FullPath }
-        "Author" = { param($row) $row.Author }
-        "Notes" = { param($row) $row.Notes }
-        "Summary" = { param($row) $row.Summary }
-        "Tags" = { param($row) $row.Tags }
-        "Enterprise Keywords" = { param($row) $row.EnterpriseKeywords }
+if ($OutputFormat -eq "Csv") {
+    $EscapeCsv = {
+        param($value)
+        $text = if ($null -eq $value) { "" } else { $value.ToString() }
+        $text = $text -replace '"', '""'
+        return '"' + $text + '"'
     }
 
-    if ($IncludeMetadataColumns) {
-        $Headers = @(
-            "MatchedTerms",
-            "Found",
-            "Doc-ID",
-            "FileName",
-            "FullPath",
-            "Author",
-            "Notes",
-            "Summary",
-            "Tags",
-            "Enterprise Keywords"
-        )
-    } else {
-        $Headers = @("MatchedTerms","Found","FileName","FullPath")
-    }
-    for ($i = 0; $i -lt $Headers.Count; $i++) {
-        $Worksheet.Cells.Item(1, $i + 1).Value2 = $Headers[$i]
-    }
-
-    $Row = 2
+    $lines = @()
+    $lines += ($Headers | ForEach-Object { & $EscapeCsv $_ }) -join ","
     foreach ($Result in $MatchResults) {
         $rowValues = foreach ($header in $Headers) {
             $getter = $ColumnValueMap[$header]
@@ -1014,32 +1025,78 @@ try {
                 ""
             }
         }
-
-        for ($i = 0; $i -lt $rowValues.Count; $i++) {
-            $Worksheet.Cells.Item($Row, $i + 1).Value2 = $rowValues[$i]
-        }
-        $Row++
+        $lines += ($rowValues | ForEach-Object { & $EscapeCsv $_ }) -join ","
     }
 
-    $Worksheet.Columns.AutoFit() | Out-Null
-    $Workbook.SaveAs($OutputFilePath) | Out-Null
-} finally {
-    $Worksheet = Release-ComObject -ComObject $Worksheet
-    if ($Workbook -ne $null) {
-        try {
-            Invoke-ComWithRetry -Action { $Workbook.Close($true) | Out-Null } -ActionName "Close workbook" | Out-Null
-        } catch {
-            Write-Warning "Failed to close workbook: $($_.Exception.Message)"
+    $lines | Set-Content -LiteralPath $OutputFilePath -Encoding UTF8
+} else {
+    $Excel = $null
+    $Workbook = $null
+    $Worksheet = $null
+    try {
+        $Excel = New-Object -ComObject Excel.Application
+        $Excel.Visible = $false
+        $Excel.DisplayAlerts = $false
+
+        $Workbook = $Excel.Workbooks.Add()
+        $Worksheet = $Workbook.Worksheets.Item(1)
+
+        for ($i = 0; $i -lt $Headers.Count; $i++) {
+            $Worksheet.Cells.Item(1, $i + 1).Value2 = $Headers[$i]
         }
-        $Workbook = Release-ComObject -ComObject $Workbook
-    }
-    if ($Excel -ne $null) {
-        try {
-            Invoke-ComWithRetry -Action { $Excel.Quit() | Out-Null } -ActionName "Quit Excel" | Out-Null
-        } catch {
-            Write-Warning "Failed to quit Excel: $($_.Exception.Message)"
+
+        $Row = 2
+        foreach ($Result in $MatchResults) {
+            $rowValues = foreach ($header in $Headers) {
+                $getter = $ColumnValueMap[$header]
+                if ($getter -ne $null) {
+                    & $getter $Result
+                } else {
+                    ""
+                }
+            }
+
+            for ($i = 0; $i -lt $rowValues.Count; $i++) {
+                $Worksheet.Cells.Item($Row, $i + 1).Value2 = $rowValues[$i]
+            }
+            $Row++
         }
-        $Excel = Release-ComObject -ComObject $Excel
+
+        if ($OutputFormat -eq "ExcelTable") {
+            try {
+                $lastRow = [Math]::Max(1, $Row - 1)
+                $range = $Worksheet.Range(
+                    $Worksheet.Cells.Item(1, 1),
+                    $Worksheet.Cells.Item($lastRow, $Headers.Count)
+                )
+                $table = $Worksheet.ListObjects.Add(1, $range, $null, 1)
+                $table.Name = "SearchResults"
+                $table.TableStyle = "TableStyleMedium2"
+            } catch {
+                Write-Warning "Failed to create table: $($_.Exception.Message)"
+            }
+        }
+
+        $Worksheet.Columns.AutoFit() | Out-Null
+        $Workbook.SaveAs($OutputFilePath) | Out-Null
+    } finally {
+        $Worksheet = Release-ComObject -ComObject $Worksheet
+        if ($Workbook -ne $null) {
+            try {
+                Invoke-ComWithRetry -Action { $Workbook.Close($true) | Out-Null } -ActionName "Close workbook" | Out-Null
+            } catch {
+                Write-Warning "Failed to close workbook: $($_.Exception.Message)"
+            }
+            $Workbook = Release-ComObject -ComObject $Workbook
+        }
+        if ($Excel -ne $null) {
+            try {
+                Invoke-ComWithRetry -Action { $Excel.Quit() | Out-Null } -ActionName "Quit Excel" | Out-Null
+            } catch {
+                Write-Warning "Failed to quit Excel: $($_.Exception.Message)"
+            }
+            $Excel = Release-ComObject -ComObject $Excel
+        }
     }
 }
 
@@ -1090,4 +1147,3 @@ return $MatchResults
 if ($MyInvocation.InvocationName -ne '.') {
     return Invoke-DocumentSearch
 }
-
