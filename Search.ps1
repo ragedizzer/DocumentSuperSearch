@@ -561,7 +561,7 @@ function Get-DocumentMetadata {
 function Invoke-DocumentSearch {
     param(
         [string]$Path = ([Environment]::GetFolderPath('MyDocuments')),
-        [string[]]$FindTerms = @("fnbm"),
+        [string[]]$FindTerms = @("Search Terms, Comma Seperated"),
         [bool]$MatchCase = $false,
         [bool]$MatchWholeWord = $true,
         [bool]$SearchTextContent = $true,
@@ -1138,4 +1138,5 @@ return $MatchResults
 if ($MyInvocation.InvocationName -ne '.') {
     return Invoke-DocumentSearch
 }
+
 
