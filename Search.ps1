@@ -552,15 +552,18 @@ function Get-DocumentMetadata {
 function Invoke-DocumentSearch {
     param(
         [string]$Path = ([Environment]::GetFolderPath('MyDocuments')),
-        [string[]]$FindTerms = @("Enter Search Term"),
+        [string[]]$FindTerms = @("fnbm"),
         [bool]$MatchCase = $false,
         [bool]$MatchWholeWord = $true,
         [bool]$SearchTextContent = $true,
         [bool]$SearchLinkPaths = $true,
+        [ValidateSet("AddressOnly","AddressAndSub","All")]
+        [string]$LinkSearchMode = "All",
         [bool]$SearchMetadata = $true,
         [bool]$IncludeMetadataColumns = $true,
         [bool]$IncludeSubfolders = $true,
         [bool]$SearchFileName = $false,
+        [int]$DocumentTimeoutSeconds = 120,
         [bool]$PreventSleep = $true,
         [bool]$SendEmailResults = $false,
         [string[]]$EmailTo = @("user@domain.com"),
@@ -670,10 +673,17 @@ function Get-LinkCandidates {
     param(
         [string]$Address,
         [string]$SubAddress,
-        [string]$DisplayText
+        [string]$DisplayText,
+        [ValidateSet("AddressOnly","AddressAndSub","All")]
+        [string]$Mode = "All"
     )
 
     $candidates = New-Object System.Collections.Generic.List[string]
+    $baseValues = switch ($Mode) {
+        "AddressOnly" { @($Address) }
+        "AddressAndSub" { @($Address, $SubAddress) }
+        default { @($Address, $SubAddress, $DisplayText) }
+    }
 
     $addCandidate = {
         param([string]$Value)
@@ -682,11 +692,11 @@ function Get-LinkCandidates {
         }
     }
 
-    & $addCandidate $Address
-    & $addCandidate $SubAddress
-    & $addCandidate $DisplayText
+    foreach ($value in $baseValues) {
+        & $addCandidate $value
+    }
 
-    foreach ($value in @($Address, $SubAddress, $DisplayText)) {
+    foreach ($value in $baseValues) {
         if ([string]::IsNullOrWhiteSpace($value)) {
             continue
         }
@@ -736,6 +746,16 @@ try {
         $Content = $null
 
         try {
+            $DocumentStopwatch = $null
+            if ($DocumentTimeoutSeconds -gt 0) {
+                $DocumentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            }
+            $CheckTimeout = {
+                if ($DocumentStopwatch -ne $null -and $DocumentStopwatch.Elapsed.TotalSeconds -ge $DocumentTimeoutSeconds) {
+                    throw "Document processing timed out after $DocumentTimeoutSeconds seconds: $($File.FullName)"
+                }
+            }
+
             $Doc = $Word.Documents.Open($File.FullName, $false, $true) #Open the document read-only
             $Content = $Doc.Content #get the 'content' object from the document
             $TermMatched = @{}
@@ -747,6 +767,7 @@ try {
 
             if ($SearchTextContent) {
                 foreach ($Term in $SearchTerms) {
+                    & $CheckTimeout
                     $Content.Start = 0
                     $Content.End = $Doc.Content.End
                                                 #term,case sensitive,whole word,wildcard,soundslike,synonyms,direction,wrappingmode
@@ -763,11 +784,12 @@ try {
                 try {
                     $Hyperlinks = $Doc.Hyperlinks
                     for ($i = 1; $i -le $Hyperlinks.Count; $i++) {
+                        & $CheckTimeout
                         $Hyperlink = $Hyperlinks.Item($i)
                         $Address = $Hyperlink.Address
                         $SubAddress = $Hyperlink.SubAddress
                         $DisplayText = $Hyperlink.TextToDisplay
-                        $LinkCandidates = Get-LinkCandidates -Address $Address -SubAddress $SubAddress -DisplayText $DisplayText
+                        $LinkCandidates = Get-LinkCandidates -Address $Address -SubAddress $SubAddress -DisplayText $DisplayText -Mode $LinkSearchMode
 
                         foreach ($Term in $SearchTerms) {
                             foreach ($candidate in $LinkCandidates) {
@@ -801,6 +823,7 @@ try {
                 ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 
                 foreach ($Term in $SearchTerms) {
+                    & $CheckTimeout
                     foreach ($candidate in $fileCandidates) {
                         if (Test-TermMatch -Text $candidate -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
                             if (-not $TermMatched[$Term]) {
@@ -844,6 +867,7 @@ try {
 
                 if ($metadataFields.Count -gt 0) {
                     foreach ($Term in $SearchTerms) {
+                        & $CheckTimeout
                         foreach ($field in $metadataFields) {
                             if (Test-TermMatch -Text $field.Value -Term $Term -MatchCase $MatchCase -MatchWholeWord $MatchWholeWord) {
                                 if (-not $TermMatched[$Term]) {
