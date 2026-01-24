@@ -1,5 +1,5 @@
 
-# Supersearch (Search.ps1) README
+# Supersearch README
 
 ## Contents
 
