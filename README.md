@@ -4,7 +4,6 @@
 ## Contents
 
 - Overview
-- Screenshots
 - Install / Setup
 - Using SharePoint libraries (sync locally)
 - GUI Usage (Search-Gui.ps1)
@@ -50,83 +49,82 @@ C:\Users\<you>\Your Org Name\Library Name
 
 ## GUI Usage (Search-Gui.ps1)
  
-# Path controls
--Search path: the folder (or file) to scan.
--Output folder: where the Excel report is saved.
+**Path controls**
+- Search path: the folder (or file) to scan.
+- Output folder: where the Excel report is saved.
 Buttons (per path):
--"..." = browse
--"S" = save the current field as the default
--"R" = reset to Documents
-This will generate a Search-Gui-Settings.json where this setting is stored.
+- "..." = browse
+- "S" = save the current field as the default
+- "R" = reset to Documents
+- This will generate a Search-Gui-Settings.json where this setting is stored.
 
-# Search options
--Include subfolders
--Search text content
--Search link paths
--Link mode (only visible when Search link paths is checked)
--Search metadata fields
--Include metadata columns
--Search file names
--Match case
--Match whole word
--Keep awake while running
--Doc timeout (seconds)
+**Search options**
+- Include subfolders
+- Search text content
+- Search link paths
+- Link mode (only visible when Search link paths is checked)
+- Search metadata fields
+- Include metadata columns
+- Search file names
+- Match case
+- Match whole word
+- Keep awake while running
+- Doc timeout (seconds)
 
-# Email options
+**Email options**
 Check Email results and fill in:
--Email to
--Send on behalf of (optional)
+- Email to
+- Send on behalf of (optional)
 Email is sent through Outlook using user’s credentials.
 Output options
  
-# Output format:
-o	Excel: standard .xlsx
-o	ExcelTable: .xlsx with a formatted table for filtering
-o	Csv: .csv for easy import into other tools
+**Output format:**
+- Excel: standard .xlsx
+- ExcelTable: .xlsx with a formatted table for filtering
+- Csv: .csv for easy import into other tools
 Link mode (use cases)
  
-# Link mode controls how hyperlink targets are searched:
--AddressOnly: fastest; searches only the hyperlink address/URL
--AddressAndSub: also searches SubAddress (bookmark/anchor)
--All: address + subaddress + display text (most thorough)
+**Link mode controls how hyperlink targets are searched:**
+- AddressOnly: fastest; searches only the hyperlink address/URL
+- AddressAndSub: also searches SubAddress (bookmark/anchor)
+- All: address + subaddress + display text (most thorough)
 
 **Use cases:**
--Large libraries where link-only searches are slow → use AddressOnly
--SharePoint docs with anchors → use AddressAndSub
--When link display text may contain the term → use All
+- Large libraries where link-only searches are slow → use AddressOnly
+- SharePoint docs with anchors → use AddressAndSub
+- When link display text may contain the term → use All
 
-# Doc timeout
+**Doc timeout**
 Global per-document timeout in seconds. If a document takes too long, it is skipped and the search continues.
--Use when Word hangs on large or corrupted documents
--Set to 0 to disable
+- Use when Word hangs on large or corrupted documents
+- Set to 0 to disable
 
-# Stop button
+**Stop button**
 Stops the scan immediately and saves the results collected so far.
 If email is enabled, the partial results are emailed as well.
 
 ## Metadata fields vs metadata columns
--Search metadata fields: allows terms to match Doc-ID, Summary, Notes, Tags, Enterprise Keywords, Author.
--Include metadata columns: adds those metadata values to the output file, even if you are not searching them.
-Use case: turn on Include metadata columns to build audit reports even if your search terms are only in the body text or links.
+- Search metadata fields: allows terms to match Doc-ID, Summary, Notes, Tags, Enterprise Keywords, Author.
+- Include metadata columns: adds those metadata values to the output file, even if you are not searching them.
+**Use case:** 
+   turn on Include metadata columns to build audit reports even if your search terms are only in the body text or links.
 
 ## CLI Usage (Search.ps1)
-
 You can run the search directly from PowerShell:
 .\Search.ps1
 
 **Or call the function with options:**
 Invoke-DocumentSearch `
-  -Path "C:\Docs" `
-  -FindTerms @("term1","term2") `
-  -IncludeSubfolders $true `
+- Path "C:\Docs" `
+- FindTerms @("term1","term2") `
+- IncludeSubfolders $true `
 
 ## Output File Details
 The report is saved with a name based on the search terms and date:
--Search results - term1, term2 - yyyy-MM-dd.xlsx
--If CSV format is selected, the extension changes to:
--Search results - term1, term2 - yyyy-MM-dd.csv
+- Search results - term1, term2 - yyyy-MM-dd.xlsx
+- If CSV format is selected, the extension changes to: Search results - term1, term2 - yyyy-MM-dd.csv
 
-# Column order (metadata on)
+**Column order (metadata on)**
 1.	MatchedTerms
 2.	Found
 3.	Doc-ID
@@ -138,37 +136,38 @@ The report is saved with a name based on the search terms and date:
 9.	Tags
 10.	Enterprise Keywords
 
-# "Found" column
+**"Found" column**
 Shows where the match occurred:
 Body; Link; Doc-ID; Summary; Notes; Tags; Enterprise Keywords; Author
  
-# Multiple terms and grouping
+**Multiple terms and grouping**
 You can search for multiple terms at once (comma or semicolon separated).
 The output includes:
--MatchedTerms: which terms were found in the document
--Found: where they were found (Body, Link, Doc-ID, Summary, etc.)
+- MatchedTerms: which terms were found in the document
+- Found: where they were found (Body, Link, Doc-ID, Summary, etc.)
+
 This makes it easy to:
--Filter/group by MatchedTerms to see which term matched
--Filter/group by Found to see whether terms appear in body text vs metadata
+- Filter/group by MatchedTerms to see which term matched
+- Filter/group by Found to see whether terms appear in body text vs metadata
 
 ## Email Results (Outlook)
 Email is sent via Outlook (no SMTP needed).
 Set in GUI:
--Email results: checked
--Email to: one or more recipients
--Send on behalf of: optional
+- Email results: checked
+- Email to: one or more recipients
+- Send on behalf of: optional
 
 ## Sleep Prevention
 To keep the machine awake during a long scan:
--GUI: "Keep awake while running" (checked by default)
--CLI: -PreventSleep $true
+- GUI: "Keep awake while running" (checked by default)
+- CLI: -PreventSleep $true
 
 ## Troubleshooting
--Output file not updating
+- Output file not updating
 Close the Excel report before running. If the file is open, the script will stop and ask you to close it.
 
--GUI changes not showing
+- GUI changes not showing
 Close and re-open the GUI. It loads Search.ps1 on startup.
 
--Metadata not found
+- Metadata not found
 Some documents do not contain all metadata fields. Empty fields a
