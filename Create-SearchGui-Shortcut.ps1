@@ -1,4 +1,4 @@
-﻿#SuperSearch Search Travis Webb V1.2026
+#SuperSearch Search Travis Webb V1.2026
 #Create a desktop shortcut for the Search GUI launcher
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -19,7 +19,16 @@ $shortcutPath = Join-Path -Path $desktopPath -ChildPath "Search GUI.lnk"
 $shell = $null
 $shortcut = $null
 try {
-    $shell = New-Object -ComObject WScript.Shell
+    try {
+        $shell = New-Object -ComObject WScript.Shell -ErrorAction Stop
+    } catch {
+        $errorMsg = "Failed to create WScript.Shell COM object.`n"
+        $errorMsg += "Error: $($_.Exception.Message)`n`n"
+        $errorMsg += "This is a Windows system component. If this fails, your Windows installation may be corrupted.`n"
+        $errorMsg += "Try running: sfc /scannow in an elevated Command Prompt to repair system files."
+        Write-Error $errorMsg
+        throw
+    }
 $powerShellPath = Join-Path -Path $env:SystemRoot -ChildPath "System32\WindowsPowerShell\v1.0\powershell.exe"
 if (-not (Test-Path -LiteralPath $powerShellPath)) {
     $powerShellPath = "powershell.exe"

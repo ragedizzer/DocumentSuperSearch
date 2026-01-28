@@ -1,0 +1,9 @@
+---
+description: Avoid tool attribution in repo metadata
+alwaysApply: true
+---
+
+# Avoid Tool Attribution
+
+- Do not include tool names in branch names, commit messages, or pull request titles/bodies.
+- Keep user-facing logs, docs, and release notes free of tool attribution.

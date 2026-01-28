@@ -1,4 +1,4 @@
-﻿#SuperSearch Search Travis Webb V1.2026
+#SuperSearch Search Travis Webb V1.2026
 #This script searches local folders document files for words (and optionally hyperlink paths) and generate a text file with the names of all the files. The folder must be local. To use this with InSight, you must first sync the libraries to windows explore so that they have a local path.  
 
 function Get-SafeFileName {
@@ -98,6 +98,132 @@ function Invoke-ComCleanup {
     [GC]::WaitForPendingFinalizers()
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
+}
+
+$script:LogFilePath = $null
+
+function Initialize-LogFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    try {
+        $script:LogFilePath = $Path
+        $header = @(
+            "DocumentSuperSearch Log",
+            "Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+            "Log file: $Path",
+            ""
+        ) -join [Environment]::NewLine
+        $header | Set-Content -LiteralPath $script:LogFilePath -Encoding UTF8
+    } catch {
+        $script:LogFilePath = $null
+        Write-Warning "Failed to initialize log file: $($_.Exception.Message)"
+    }
+}
+
+function Write-LogEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("INFO","WARNING","ERROR")]
+        [string]$Level,
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [string]$Suggestion = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($script:LogFilePath)) {
+        return
+    }
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $lines = @(
+        "[$timestamp] [$Level] $Message"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($Suggestion)) {
+        $lines += "  Possible reasons / fixes: $Suggestion"
+    }
+    $lines += ""
+
+    try {
+        $lines | Add-Content -LiteralPath $script:LogFilePath -Encoding UTF8
+    } catch {
+        # ignore log write failures
+    }
+}
+
+function Write-LogWarning {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [string]$Suggestion = ""
+    )
+
+    Write-Warning $Message
+    Write-LogEntry -Level "WARNING" -Message $Message -Suggestion $Suggestion
+}
+
+function Write-LogError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [string]$Suggestion = ""
+    )
+
+    Write-Error $Message
+    Write-LogEntry -Level "ERROR" -Message $Message -Suggestion $Suggestion
+}
+
+function Test-ComObjectAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProgId
+    )
+
+    try {
+        $testObj = New-Object -ComObject $ProgId -ErrorAction Stop
+        $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($testObj)
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function New-ComObjectWithErrorHandling {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProgId,
+        [string]$DisplayName = $ProgId
+    )
+
+    try {
+        $comObj = New-Object -ComObject $ProgId -ErrorAction Stop
+        return $comObj
+    } catch [System.Management.Automation.PSArgumentException] {
+        $errorMsg = "Failed to create $DisplayName COM object.`n"
+        $errorMsg += "Error: $($_.Exception.Message)`n`n"
+        $errorMsg += "Possible causes:`n"
+        $errorMsg += "1. Microsoft Office ($DisplayName) is not installed`n"
+        $errorMsg += "2. Office COM registration is corrupted`n"
+        $errorMsg += "3. Office needs to be repaired or reinstalled`n`n"
+        $errorMsg += "To fix:`n"
+        $errorMsg += "- Install Microsoft Office (Word/Excel/Outlook)`n"
+        $errorMsg += "- Run Office repair: Settings > Apps > Microsoft Office > Modify > Quick Repair`n"
+        $errorMsg += "- Or reinstall Microsoft Office"
+        Write-LogError $errorMsg "Install or repair Microsoft Office for $DisplayName."
+        throw
+    } catch {
+        $errorMsg = "Failed to create $DisplayName COM object.`n"
+        $errorMsg += "Error: $($_.Exception.Message)`n"
+        $errorMsg += "HRESULT: $($_.Exception.HResult)`n`n"
+        if ($_.Exception.HResult -eq 0x80040154) {
+            $errorMsg += "This error (REGDB_E_CLASSNOTREG) means the COM class is not registered.`n"
+            $errorMsg += "Microsoft Office ($DisplayName) may not be installed or needs to be repaired.`n"
+        }
+        Write-LogError $errorMsg "Install or repair Microsoft Office for $DisplayName."
+        throw
+    }
 }
 
 function Get-CustomPropertyValue {
@@ -238,8 +364,21 @@ function Get-DocxMetadataFromPackage {
         }
 
         Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue | Out-Null
-        $archive = [System.IO.Compression.ZipFile]::OpenRead($FilePath)
+        $archive = $null
+        $fileStream = $null
         try {
+            $fileStream = [System.IO.File]::Open(
+                $FilePath,
+                [System.IO.FileMode]::Open,
+                [System.IO.FileAccess]::Read,
+                [System.IO.FileShare]::ReadWrite
+            )
+            $archive = New-Object System.IO.Compression.ZipArchive(
+                $fileStream,
+                [System.IO.Compression.ZipArchiveMode]::Read,
+                $false
+            )
+
             foreach ($entry in $archive.Entries) {
                 if (-not $entry.FullName.EndsWith(".xml", [System.StringComparison]::OrdinalIgnoreCase)) {
                     continue
@@ -356,9 +495,23 @@ function Get-DocxMetadataFromPackage {
             }
         } finally {
             if ($archive) { $archive.Dispose() }
+            if ($fileStream) { $fileStream.Dispose() }
         }
     } catch {
-        Write-Warning "Failed to read metadata from ${FilePath}: $($_.Exception.Message)"
+        $extraHint = ""
+        if ($_.Exception.Message -match "Central Directory corrupt") {
+            $extraHint = " (docx appears corrupted; try Word Open and Repair or re-sync the file)"
+        } else {
+            try {
+                $fileItem = Get-Item -LiteralPath $FilePath -ErrorAction SilentlyContinue
+                if ($fileItem -and ($fileItem.Attributes -band [System.IO.FileAttributes]::Offline)) {
+                    $extraHint = " (file appears to be online-only; make it available offline)"
+                }
+            } catch {
+                # ignore attribute lookup failures
+            }
+        }
+        Write-LogWarning "Failed to read metadata from ${FilePath}: $($_.Exception.Message)$extraHint" "File may be corrupted or online-only. Try Open and Repair or re-sync from OneDrive."
     }
 
     return $metadata
@@ -584,19 +737,6 @@ function Invoke-DocumentSearch {
         [string[]]$WordExts = @('.docx','.doc','.docm')
     )
 
-$SearchTerms = @($FindTerms | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" } | Select-Object -Unique)
-if (-not $SearchTerms -or $SearchTerms.Count -eq 0) {
-    Write-Error "No search terms provided. Update `$FindTerms."
-    return
-}
-if (-not $SearchTextContent -and -not $SearchLinkPaths -and -not $SearchMetadata -and -not $SearchFileName) {
-    Write-Error "Enable at least one of `$SearchTextContent, `$SearchLinkPaths, `$SearchMetadata, or `$SearchFileName."
-    return
-}
-$SearchTermsText = $SearchTerms -join ", "
-$EmailSubject = Get-SearchResultsSubject -SearchTerms $SearchTerms
-$OutputExtension = if ($OutputFormat -eq "Csv") { ".csv" } else { ".xlsx" }
-$OutputFileName = Get-SearchResultsFileName -Subject $EmailSubject -Extension $OutputExtension
 $ResolvedOutputDirectory = $OutputDirectory
 if ([string]::IsNullOrWhiteSpace($ResolvedOutputDirectory)) {
     $ResolvedOutputDirectory = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Get-Location).Path } else { $PSScriptRoot }
@@ -606,16 +746,40 @@ try {
         New-Item -ItemType Directory -Path $ResolvedOutputDirectory -Force | Out-Null
     }
 } catch {
-    Write-Error "Unable to create output directory: $ResolvedOutputDirectory"
+    Write-LogError "Unable to create output directory: $ResolvedOutputDirectory" "Check permissions and available disk space."
     return
 }
+
+$SearchTerms = @($FindTerms | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" } | Select-Object -Unique)
+if (-not $SearchTerms -or $SearchTerms.Count -eq 0) {
+    Write-LogError "No search terms provided. Update `$FindTerms." "Provide one or more terms in FindTerms."
+    return
+}
+if (-not $SearchTextContent -and -not $SearchLinkPaths -and -not $SearchMetadata -and -not $SearchFileName) {
+    Write-LogError "Enable at least one of `$SearchTextContent, `$SearchLinkPaths, `$SearchMetadata, or `$SearchFileName." "Turn on at least one search option."
+    return
+}
+$SearchTermsText = $SearchTerms -join ", "
+$EmailSubject = Get-SearchResultsSubject -SearchTerms $SearchTerms
+$OutputExtension = if ($OutputFormat -eq "Csv") { ".csv" } else { ".xlsx" }
+$OutputFileName = Get-SearchResultsFileName -Subject $EmailSubject -Extension $OutputExtension
+
+$LogFileName = ([System.IO.Path]::GetFileNameWithoutExtension($OutputFileName)) + "-log.txt"
+$LogFilePath = Join-Path -Path $ResolvedOutputDirectory -ChildPath $LogFileName
+Initialize-LogFile -Path $LogFilePath
+Write-LogEntry -Level "INFO" -Message "Log initialized."
+Write-LogEntry -Level "INFO" -Message "Output file: $OutputFileName"
+Write-LogEntry -Level "INFO" -Message "Search path: $Path"
+Write-Host "Log file: $LogFilePath" -ForegroundColor Cyan
+
 $OutputFilePath = Join-Path -Path $ResolvedOutputDirectory -ChildPath $OutputFileName
 
 if (Test-Path -LiteralPath $OutputFilePath) {
     try {
         Remove-Item -LiteralPath $OutputFilePath -Force
     } catch {
-        throw "Output file is in use. Close it and re-run: $OutputFilePath"
+        Write-LogError "Output file is in use. Close it and re-run: $OutputFilePath" "Close the file in Excel/Word or choose a different output directory."
+        throw
     }
 }
 
@@ -623,10 +787,15 @@ if ($PreventSleep) {
     Enable-PreventSleep
 }
 
-$Word = New-Object -ComObject Word.Application #create word object
-$Word.Visible = $false #hides the window
-$Word.DisplayAlerts = 0 #disable prompts that block automation
-$Word.AutomationSecurity = 3 #disable macros while scanning
+try {
+    $Word = New-ComObjectWithErrorHandling -ProgId "Word.Application" -DisplayName "Microsoft Word"
+    $Word.Visible = $false #hides the window
+    $Word.DisplayAlerts = 0 #disable prompts that block automation
+    $Word.AutomationSecurity = 3 #disable macros while scanning
+} catch {
+    Write-LogError "Cannot proceed without Microsoft Word. Please install or repair Microsoft Office." "Install Microsoft Word or repair Office."
+    exit 1
+}
 
 function Invoke-ComWithRetry {
     param(
@@ -649,8 +818,42 @@ function Invoke-ComWithRetry {
         }
     }
 
-    Write-Warning "$ActionName failed after $Retries retries."
+    Write-LogWarning "$ActionName failed after $Retries retries." "Retry later or close any blocking Office dialogs."
     return $false
+}
+
+function Open-WordDocument {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$WordApp,
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    try {
+        return $WordApp.Documents.Open($Path, $false, $true)
+    } catch {
+        # Retry with OpenAndRepair to handle corrupt/locked docs
+        try {
+            return $WordApp.Documents.Open(
+                $Path,           # FileName
+                $false,          # ConfirmConversions
+                $true,           # ReadOnly
+                $false,          # AddToRecentFiles
+                "",              # PasswordDocument
+                "",              # PasswordTemplate
+                $false,          # Revert
+                "",              # WritePasswordDocument
+                "",              # WritePasswordTemplate
+                0,               # Format
+                $false,          # Encoding
+                $false,          # Visible
+                $true            # OpenAndRepair
+            )
+        } catch {
+            throw
+        }
+    }
 }
 
 function Test-TermMatch {
@@ -744,7 +947,7 @@ try {
 
     $pathItem = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
     if ($null -eq $pathItem) {
-        Write-Error "Search path not found: $Path"
+        Write-LogError "Search path not found: $Path" "Verify the folder exists and you have access."
         return
     }
 
@@ -781,7 +984,7 @@ try {
                 }
             }
 
-            $Doc = $Word.Documents.Open($File.FullName, $false, $true) #Open the document read-only
+            $Doc = Open-WordDocument -WordApp $Word -Path $File.FullName #open read-only with repair fallback
             $Content = $Doc.Content #get the 'content' object from the document
             $TermMatched = @{}
             $FoundLocations = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -839,7 +1042,7 @@ try {
                     }
                     if ($StopSearch) { break }
                 } catch {
-                    Write-Warning "Failed to scan hyperlinks in $($File.FullName): $($_.Exception.Message)"
+                    Write-LogWarning "Failed to scan hyperlinks in $($File.FullName): $($_.Exception.Message)" "Document may be protected or corrupted. Try disabling hyperlink search or repair the file."
                 } finally {
                     $Hyperlinks = Release-ComObject -ComObject $Hyperlinks
                 }
@@ -940,14 +1143,23 @@ try {
                 Write-Host "$($File.Name) does not contain any terms" -ForegroundColor Red
             }
         } catch {
-            Write-Warning "Skipping $($File.FullName): $($_.Exception.Message)"
+            $extraHint = ""
+            try {
+                $fileItem = Get-Item -LiteralPath $File.FullName -ErrorAction SilentlyContinue
+                if ($fileItem -and ($fileItem.Attributes -band [System.IO.FileAttributes]::Offline)) {
+                    $extraHint = " (file appears to be online-only; make it available offline)"
+                }
+            } catch {
+                # ignore attribute lookup failures
+            }
+            Write-LogWarning "Skipping $($File.FullName): $($_.Exception.Message)$extraHint" "File may be locked, corrupted, or online-only. Open and Repair, or ensure local availability."
         } finally {
             $Content = Release-ComObject -ComObject $Content
             if ($Doc -ne $null) {
                 try {
                     Invoke-ComWithRetry -Action { $Doc.Close([ref]$false) | Out-Null } -ActionName "Close document" | Out-Null #close the document
                 } catch {
-                    Write-Warning "Failed to close $($File.FullName): $($_.Exception.Message)"
+                    Write-LogWarning "Failed to close $($File.FullName): $($_.Exception.Message)" "Close any open Word windows or end stuck WINWORD.EXE processes."
                 } finally {
                     $Doc = Release-ComObject -ComObject $Doc
                 }
@@ -961,7 +1173,7 @@ try {
         try {
             Invoke-ComWithRetry -Action { $Word.Quit() | Out-Null } -ActionName "Quit Word" | Out-Null #quit the word process
         } catch {
-            Write-Warning "Failed to quit Word: $($_.Exception.Message)"
+            Write-LogWarning "Failed to quit Word: $($_.Exception.Message)" "Close Word or end WINWORD.EXE in Task Manager."
         }
         $Word = Release-ComObject -ComObject $Word
     }
@@ -1025,7 +1237,7 @@ if ($OutputFormat -eq "Csv") {
     $Workbook = $null
     $Worksheet = $null
     try {
-        $Excel = New-Object -ComObject Excel.Application
+        $Excel = New-ComObjectWithErrorHandling -ProgId "Excel.Application" -DisplayName "Microsoft Excel"
         $Excel.Visible = $false
         $Excel.DisplayAlerts = $false
 
@@ -1064,7 +1276,7 @@ if ($OutputFormat -eq "Csv") {
                 $table.Name = "SearchResults"
                 $table.TableStyle = "TableStyleMedium2"
             } catch {
-                Write-Warning "Failed to create table: $($_.Exception.Message)"
+                Write-LogWarning "Failed to create table: $($_.Exception.Message)" "Try output format Excel or CSV without table formatting."
             }
         }
 
@@ -1076,7 +1288,7 @@ if ($OutputFormat -eq "Csv") {
             try {
                 Invoke-ComWithRetry -Action { $Workbook.Close($true) | Out-Null } -ActionName "Close workbook" | Out-Null
             } catch {
-                Write-Warning "Failed to close workbook: $($_.Exception.Message)"
+                Write-LogWarning "Failed to close workbook: $($_.Exception.Message)" "Close any open Excel windows or end stuck EXCEL.EXE processes."
             }
             $Workbook = Release-ComObject -ComObject $Workbook
         }
@@ -1084,7 +1296,7 @@ if ($OutputFormat -eq "Csv") {
             try {
                 Invoke-ComWithRetry -Action { $Excel.Quit() | Out-Null } -ActionName "Quit Excel" | Out-Null
             } catch {
-                Write-Warning "Failed to quit Excel: $($_.Exception.Message)"
+                Write-LogWarning "Failed to quit Excel: $($_.Exception.Message)" "Close Excel or end EXCEL.EXE in Task Manager."
             }
             $Excel = Release-ComObject -ComObject $Excel
         }
@@ -1093,7 +1305,7 @@ if ($OutputFormat -eq "Csv") {
 
 if ($SendEmailResults) {
     if (-not $EmailTo -or $EmailTo.Count -eq 0) {
-        Write-Error "Email is enabled but `$EmailTo is empty."
+        Write-LogError "Email is enabled but `$EmailTo is empty." "Provide one or more recipients or disable SendEmailResults."
     } else {
         $Outlook = $null
         $MailItem = $null
@@ -1106,7 +1318,7 @@ Matches: $MatchedFileCount
 Output file: $OutputFilePath
 "@
 
-            $Outlook = New-Object -ComObject Outlook.Application
+            $Outlook = New-ComObjectWithErrorHandling -ProgId "Outlook.Application" -DisplayName "Microsoft Outlook"
             $MailItem = $Outlook.CreateItem(0) # 0 = MailItem
             $MailItem.To = ($EmailTo -join ";")
             if (-not [string]::IsNullOrWhiteSpace($EmailFrom)) {
@@ -1118,7 +1330,7 @@ Output file: $OutputFilePath
             $MailItem.Send()
             Write-Host "Email sent to $($EmailTo -join ', ')" -ForegroundColor Green
         } catch {
-            Write-Warning "Failed to send email via Outlook: $($_.Exception.Message)"
+            Write-LogWarning "Failed to send email via Outlook: $($_.Exception.Message)" "Ensure Outlook is installed, configured, and logged in, or disable email sending."
         } finally {
             $MailItem = Release-ComObject -ComObject $MailItem
             $Outlook = Release-ComObject -ComObject $Outlook
