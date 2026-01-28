@@ -1,8 +1,9 @@
 
 # Supersearch README
 
-## Contents
+This tool uses PowerShell and will work in highly restricted offices.  With its ability to search multiple terms in one go, then provide results for all search terms in a spreadsheet it is a great tool for auditing and cleaning up large Word Document repositories or SharePoint document libraries.   It only searches the local/sync/network drives. It uses Outlook to send emails.
 
+## Contents
 - Overview
 - Install / Setup
 - Using SharePoint libraries (sync locally)
@@ -14,7 +15,6 @@
 - Troubleshooting
 
 ## Overview
-
 This document explains how to install and use the Supersearch tool, including the GUI and key options.
 Supersearch scans Word documents for terms in:
 - Document body text
