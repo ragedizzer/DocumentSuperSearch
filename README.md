@@ -1,7 +1,7 @@
 
 # Supersearch README
 
-This tool uses PowerShell and will work in highly restricted offices.  With its ability to search multiple terms in one go, then provide results for all search terms in a spreadsheet it is a great tool for auditing and cleaning up large Word Document repositories or SharePoint document libraries.   It only searches the local/sync/network drives. It uses Outlook to send emails.
+This tool uses PowerShell and will work in highly restricted offices. With its ability to search multiple terms in one go, then provide results for all search terms in a spreadsheet, it is a great tool for auditing and cleaning up large Word Document repositories or SharePoint document libraries. It only searches the local/sync/network drives. It uses Outlook to send emails.
 
 ## Contents
 - Overview
@@ -12,6 +12,7 @@ This tool uses PowerShell and will work in highly restricted offices.  With its 
 - Output File Details
 - Mail Results (Outlook)
 - Sleep Prevention
+- Release and maintenance
 - Troubleshooting
 
 ## Overview
@@ -21,30 +22,30 @@ Supersearch scans Word documents for terms in:
 - Hyperlink paths
 - Metadata fields (Summary, Notes, Tags, Enterprise Keywords, Author)
 Results are saved to an Excel file and can be emailed via Outlook.
-Supersearch is a PowerShell-based document discovery tool for Word files. It searches body text, hyperlinks, and key metadata fields, then exports results to a structured Excel report. This makes it ideal for governance and audit workflows where documents must be grouped or validated by metadata such as  Summary, Tags, or Enterprise Keywords.
+Supersearch is a PowerShell-based document discovery tool for Word files. It searches body text, hyperlinks, and key metadata fields, then exports results to a structured Excel report. This makes it ideal for governance and audit workflows where documents must be grouped or validated by metadata such as Summary, Tags, or Enterprise Keywords.
 
 The output file is audit-friendly because it:
--Captures where each match was found (body, metadata field, or link)
--Normalizes metadata into consistent columns for easy filtering/grouping
--Enables quick review of compliance or inventory gaps across large libraries
+- Captures where each match was found (body, metadata field, or link)
+- Normalizes metadata into consistent columns for easy filtering/grouping
+- Enables quick review of compliance or inventory gaps across large libraries
 
 ## Install / Setup
-1.	Copy the folder Supersearch from Tools and Scripts to your desired location. 
-2.	Run the GUI:
-3.	Click Start and search for “PowerShell ISE” and open the file. 
-4.	Click the open Icon and direct the explore to the location of Search-Gui.ps1 file and click to open the file. 
-5.	Press the green triangle play button. 
+1. Copy the folder Supersearch from Tools and Scripts to your desired location.
+2. Click Start and search for "PowerShell ISE" and open it.
+3. Click the Open icon, browse to Search-Gui.ps1, and open the file.
+4. Press the green triangle play button.
  
 ## Using SharePoint libraries (sync locally)
 This tool searches local files, so SharePoint libraries must be synced to your computer first.
 Steps (Microsoft 365 / OneDrive):
-1.	Open the SharePoint document library in your browser.
-2.	Click Sync in the command bar.
-3.	Approve opening OneDrive (if prompted).
-4.	Wait for the library to appear in File Explorer under your organization’s name.
-5.	Right-click the properties on the folder and make sure there is a check in the Read Only check box. 
+1. Open the SharePoint document library in your browser.
+2. Click Sync in the command bar.
+3. Approve opening OneDrive (if prompted).
+4. Wait for the library to appear in File Explorer under your organization's name.
+5. Right-click the folder, choose Properties, and make sure Read-only is checked.
 
 **Tip:** The library path typically looks like:
+
 C:\Users\<you>\Your Org Name\Library Name
 
 ## GUI Usage (Search-Gui.ps1)
@@ -76,14 +77,14 @@ Check Email results and fill in:
 - Email to
 - Send on behalf of (optional)
 Email is sent through Outlook using user’s credentials.
-Output options
- 
+**Output options**
+
 **Output format:**
 - Excel: standard .xlsx
 - ExcelTable: .xlsx with a formatted table for filtering
 - Csv: .csv for easy import into other tools
-Link mode (use cases)
- 
+**Link mode (use cases)**
+
 **Link mode controls how hyperlink targets are searched:**
 - AddressOnly: fastest; searches only the hyperlink address/URL
 - AddressAndSub: also searches SubAddress (bookmark/anchor)
@@ -106,8 +107,8 @@ If email is enabled, the partial results are emailed as well.
 ## Metadata fields vs metadata columns
 - Search metadata fields: allows terms to match Doc-ID, Summary, Notes, Tags, Enterprise Keywords, Author.
 - Include metadata columns: adds those metadata values to the output file, even if you are not searching them.
-**Use case:** 
-   turn on Include metadata columns to build audit reports even if your search terms are only in the body text or links.
+**Use case:**
+- Turn on Include metadata columns to build audit reports even if your search terms are only in the body text or links.
 
 ## CLI Usage (Search.ps1)
 You can run the search directly from PowerShell:
@@ -162,6 +163,9 @@ To keep the machine awake during a long scan:
 - GUI: "Keep awake while running" (checked by default)
 - CLI: -PreventSleep $true
 
+## Release and maintenance
+See RELEASING.md for the release checklist and branch protection expectations.
+
 ## Troubleshooting
 - Output file not updating
 Close the Excel report before running. If the file is open, the script will stop and ask you to close it.
@@ -170,4 +174,4 @@ Close the Excel report before running. If the file is open, the script will stop
 Close and re-open the GUI. It loads Search.ps1 on startup.
 
 - Metadata not found
-Some documents do not contain all metadata fields. Empty fields a
+Some documents do not contain all metadata fields. Empty fields are expected.
