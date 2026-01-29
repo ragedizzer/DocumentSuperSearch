@@ -128,7 +128,7 @@ The report is saved with a name based on the search terms and date:
 **Column order (metadata on)**
 1.	MatchedTerms
 2.	Found
-3.	Doc-ID
+3.	Doc-ID (customized for different terms)
 4.	FileName
 5.	FullPath
 6.	Author
