@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  pwsh-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PowerShell syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $files = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter *.ps1
+          if (-not $files) {
+            Write-Host "No PowerShell files found."
+            exit 0
+          }
+
+          $failed = $false
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors -and $errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "Syntax errors in $($file.FullName):"
+              foreach ($err in $errors) {
+                Write-Host "  $($err.Extent.StartLineNumber):$($err.Extent.StartColumnNumber) $($err.Message)"
+              }
+            }
+          }
+
+          if ($failed) {
+            throw "PowerShell syntax check failed."
+          }
